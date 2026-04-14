@@ -1,4 +1,4 @@
-DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -908,36 +908,50 @@ function doLogout() {
 const SUPABASE_URL = 'https://epshtvujgfjvbbcynbf.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_e6RCwO4d64kY4RwF-TPrQw_ZgE_I_X2';
 
-// Initialize Supabase client
+let supabaseClient = null;
+let supabaseReady = false;
+
+// Load Supabase library
 const supabaseScript = document.createElement('script');
 supabaseScript.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 document.head.appendChild(supabaseScript);
 
-let supabase = null;
-
 supabaseScript.onload = function() {
-  const { createClient } = window.supabase;
-  supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-  console.log('✅ Supabase conectado');
+  setTimeout(() => {
+    try {
+      if (window.supabase && window.supabase.createClient) {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        supabaseReady = true;
+        console.log('✅ Supabase conectado');
+      } else {
+        console.error('❌ Supabase library not loaded properly');
+      }
+    } catch (e) {
+      console.error('❌ Error inicializando Supabase:', e);
+    }
+  }, 100);
 };
 
 // ═══ SUPABASE FUNCTIONS ═══
 async function saveAccount(accountData) {
-  if (!supabase) { console.log('Supabase no listo'); return; }
+  if (!supabaseReady || !supabaseClient) { 
+    console.log('⏳ Supabase no está listo'); 
+    return; 
+  }
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('accounts')
       .insert([accountData]);
     if (error) throw error;
-    console.log('✅ Cuenta guardada:', data);
+    console.log('✅ Cuenta guardada en Supabase:', data);
     return data;
-  } catch (err) { console.error('Error:', err); }
+  } catch (err) { console.error('❌ Error guardando cuenta:', err); }
 }
 
 async function getAccounts() {
-  if (!supabase) return [];
+  if (!supabaseReady || !supabaseClient) return [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('accounts')
       .select('*');
     if (error) throw error;
@@ -946,9 +960,9 @@ async function getAccounts() {
 }
 
 async function saveContact(contactData) {
-  if (!supabase) return;
+  if (!supabaseReady || !supabaseClient) return;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('contacts')
       .insert([contactData]);
     if (error) throw error;
@@ -958,9 +972,9 @@ async function saveContact(contactData) {
 }
 
 async function getContacts() {
-  if (!supabase) return [];
+  if (!supabaseReady || !supabaseClient) return [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('contacts')
       .select('*');
     if (error) throw error;
@@ -969,9 +983,9 @@ async function getContacts() {
 }
 
 async function saveOpportunity(oppData) {
-  if (!supabase) return;
+  if (!supabaseReady || !supabaseClient) return;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('opportunities')
       .insert([oppData]);
     if (error) throw error;
@@ -981,9 +995,9 @@ async function saveOpportunity(oppData) {
 }
 
 async function getOpportunities() {
-  if (!supabase) return [];
+  if (!supabaseReady || !supabaseClient) return [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('opportunities')
       .select('*');
     if (error) throw error;
@@ -992,9 +1006,9 @@ async function getOpportunities() {
 }
 
 async function saveActivity(activityData) {
-  if (!supabase) return;
+  if (!supabaseReady || !supabaseClient) return;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('activities')
       .insert([activityData]);
     if (error) throw error;
@@ -1004,9 +1018,9 @@ async function saveActivity(activityData) {
 }
 
 async function getActivities() {
-  if (!supabase) return [];
+  if (!supabaseReady || !supabaseClient) return [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('activities')
       .select('*');
     if (error) throw error;
@@ -1015,9 +1029,9 @@ async function getActivities() {
 }
 
 async function saveTarget(targetData) {
-  if (!supabase) return;
+  if (!supabaseReady || !supabaseClient) return;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('targets')
       .insert([targetData]);
     if (error) throw error;
@@ -1027,9 +1041,9 @@ async function saveTarget(targetData) {
 }
 
 async function getTargets() {
-  if (!supabase) return [];
+  if (!supabaseReady || !supabaseClient) return [];
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('targets')
       .select('*');
     if (error) throw error;
@@ -1038,9 +1052,9 @@ async function getTargets() {
 }
 
 async function logAudit(username, tableName, action, recordId, newValues) {
-  if (!supabase) return;
+  if (!supabaseReady || !supabaseClient) return;
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('audit_log')
       .insert([{
         username: username,
