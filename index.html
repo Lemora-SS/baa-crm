@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -1342,6 +1342,17 @@ async function saveRec(type,id){
   else if(type==="activity"){if(!g("f-date")){toast("Date required");return;}const acc=store.accounts.find(a=>a.id===g("f-accountId"));rec={id:id||genId(px),date:g("f-date"),owner:g("f-owner"),accountId:g("f-accountId"),accountName:acc?.name||"",activityType:g("f-activityType"),outcome:g("f-outcome"),duration:g("f-duration"),nextStep:g("f-nextStep"),nextStepDue:g("f-nextStepDue"),notes:g("f-notes"),loggedBy:userProfile.name||""};}
   else if(type==="target"){if(!g("f-period")){toast("Period required");return;}rec={id:id||genId(px),period:g("f-period"),owner:g("f-owner"),targetRevenue:g("f-targetRevenue"),targetCases:g("f-targetCases"),targetNewAccounts:g("f-targetNewAccounts"),targetActivities:g("f-targetActivities")};}
   if(id){const i=store[sk].findIndex(r=>r.id===id);if(i>=0)store[sk][i]=rec;}else store[sk].push(rec);
+  
+  // SAVE TO SUPABASE
+  const user = sessionStorage.getItem('baa_user') || 'Unknown';
+  if(type==="account") await saveAccount({name:rec.name,address:rec.address,city:rec.city,state:rec.state,country:rec.state,phone:"",email:"",website:"",industry:rec.channel});
+  else if(type==="contact") await saveContact({account_id:null,first_name:rec.contactName,last_name:"",title:rec.title,email:rec.email,phone:rec.phone,mobile:"",department:""});
+  else if(type==="opportunity") await saveOpportunity({account_id:null,contact_id:null,name:rec.accountName,stage:rec.stage,amount:parseFloat(rec.estMonthlyRevenue||0),probability:parseFloat(rec.probability||0),expected_close_date:rec.estCloseDate});
+  else if(type==="activity") await saveActivity({account_id:null,contact_id:null,opportunity_id:null,type:rec.activityType,subject:rec.accountName,description:rec.notes,activity_date:rec.date,assigned_to:rec.owner,status:"completed"});
+  else if(type==="target") await saveTarget({period:rec.period,owner:rec.owner,target_revenue:parseFloat(rec.targetRevenue||0),target_cases:parseInt(rec.targetCases||0),new_accounts:parseInt(rec.targetNewAccounts||0),activities:parseInt(rec.targetActivities||0)});
+  
+  await logAudit(user, sk, id?"update":"create", rec.id, rec);
+  
   closeModal();await saveAndSync();toast((id?"Updated":"Saved")+" ✓");renderCurrentPage();
   // If we just saved an activity with an account, refresh account history if it's visible
   if(type==="activity"&&rec.accountId){
