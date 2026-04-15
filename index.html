@@ -907,8 +907,20 @@ async function doLogin() {
     if (opportunities !== null) store.opportunities = opportunities || [];
     if (activities    !== null) store.activities    = activities    || [];
     if (targets       !== null) store.targets       = targets       || [];
+
+    // Update nextId counters so new IDs don't conflict
+    const getNum = (arr, prefix) => arr.reduce((max, r) => {
+      const n = parseInt((r.id||'').replace(prefix+'-','')) || 0;
+      return n > max ? n : max;
+    }, 0);
+    store.nextId.acc = getNum(store.accounts,      'ACC') + 1;
+    store.nextId.con = getNum(store.contacts,      'CON') + 1;
+    store.nextId.opp = getNum(store.opportunities, 'OPP') + 1;
+    store.nextId.act = getNum(store.activities,    'ACT') + 1;
+    store.nextId.tar = getNum(store.targets,       'TAR') + 1;
+
     saveStore();
-    console.log('✅ Datos cargados desde Supabase');
+    console.log('✅ Datos cargados desde Supabase. nextId:', store.nextId);
   } catch(e) {
     console.warn('⚠️ Usando datos locales:', e);
   }
