@@ -1,0 +1,8 @@
+{
+  "name": "baa-crm",
+  "version": "1.0.0",
+  "description": "BAA Sales CRM",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
