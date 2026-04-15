@@ -885,15 +885,40 @@ window.addEventListener('DOMContentLoaded', function() {
   }
 });
 
-function doLogin() {
+async function doLogin() {
   const user = document.getElementById('login-user').value;
   const error = document.getElementById('login-error');
-  if (!user) {
-    error.textContent = 'Selecciona tu nombre';
-    return;
+  if (!user) { error.textContent = 'Selecciona tu nombre'; return; }
+
+  const btn = document.querySelector('#login-box button');
+  btn.textContent = 'Cargando...';
+  btn.disabled = true;
+
+  try {
+    const [accounts, contacts, opportunities, activities, targets] = await Promise.all([
+      dbCall('getAll','accounts'),
+      dbCall('getAll','contacts'),
+      dbCall('getAll','opportunities'),
+      dbCall('getAll','activities'),
+      dbCall('getAll','targets')
+    ]);
+    if (accounts      !== null) store.accounts      = accounts      || [];
+    if (contacts      !== null) store.contacts      = contacts      || [];
+    if (opportunities !== null) store.opportunities = opportunities || [];
+    if (activities    !== null) store.activities    = activities    || [];
+    if (targets       !== null) store.targets       = targets       || [];
+    saveStore();
+    console.log('✅ Datos cargados desde Supabase');
+  } catch(e) {
+    console.warn('⚠️ Usando datos locales:', e);
   }
+
   sessionStorage.setItem('baa_user', user);
+  userProfile = { name: user };
+  localStorage.setItem('baacrm_user', JSON.stringify(userProfile));
   document.getElementById('login-overlay').classList.add('hidden');
+  updateUserUI();
+  renderDashboard();
 }
 
 function doLogout() {
@@ -1267,14 +1292,13 @@ async function saveRec(type,id){
   else if(type==="target"){if(!g("f-period")){toast("Period required");return;}rec={id:id||genId(px),period:g("f-period"),owner:g("f-owner"),targetRevenue:g("f-targetRevenue"),targetCases:g("f-targetCases"),targetNewAccounts:g("f-targetNewAccounts"),targetActivities:g("f-targetActivities")};}
   if(id){const i=store[sk].findIndex(r=>r.id===id);if(i>=0)store[sk][i]=rec;}else store[sk].push(rec);
   
-  // SAVE TO SUPABASE
+  // SAVE TO SUPABASE — save raw rec in CRM format
   const user = sessionStorage.getItem('baa_user') || 'Unknown';
-  if(type==="account") await saveAccount({name:rec.name,address:rec.address,city:rec.city,state:rec.state,country:rec.state,phone:"",email:"",website:"",industry:rec.channel});
-  else if(type==="contact") await saveContact({account_id:null,first_name:rec.contactName,last_name:"",title:rec.title,email:rec.email,phone:rec.phone,mobile:"",department:""});
-  else if(type==="opportunity") await saveOpportunity({account_id:null,contact_id:null,name:rec.accountName,stage:rec.stage,amount:parseFloat(rec.estMonthlyRevenue||0),probability:parseFloat(rec.probability||0),expected_close_date:rec.estCloseDate});
-  else if(type==="activity") await saveActivity({account_id:null,contact_id:null,opportunity_id:null,type:rec.activityType,subject:rec.accountName,description:rec.notes,activity_date:rec.date,assigned_to:rec.owner,status:"completed"});
-  else if(type==="target") await saveTarget({period:rec.period,owner:rec.owner,target_revenue:parseFloat(rec.targetRevenue||0),target_cases:parseInt(rec.targetCases||0),new_accounts:parseInt(rec.targetNewAccounts||0),activities:parseInt(rec.targetActivities||0)});
-  
+  if(id) {
+    await dbCall('update', sk, { data: rec, id: rec.id });
+  } else {
+    await dbCall('insert', sk, { data: rec });
+  }
   await logAudit(user, sk, id?"update":"create", rec.id, rec);
   
   closeModal();await saveAndSync();toast((id?"Updated":"Saved")+" ✓");renderCurrentPage();
