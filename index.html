@@ -275,6 +275,9 @@ input[readonly]{background:var(--s2);color:var(--t2);}
 }
 
 /* Disable Inventory, Calendar, Sales Team High Impact visually */
+/* INVENTORY MODULE HIDDEN — not in current plan */
+#inv-par-sk, #inv-sub-sk, #inv-par-dr, #inv-sub-dr,
+#page-inventory, #page-invaerts { display: none !important; }
 #inv-par-sk, #inv-sub-sk,
 .ditem[onclick*="calendar"],
 #sthi-hd-sk, #sthi-sk,
@@ -551,12 +554,7 @@ input[readonly]{background:var(--s2);color:var(--t2);}
   <div class="card"><div class="st" style="margin-bottom:11px">Recent Activities</div><div id="recent-acts"></div></div>
 
   <div class="sh" style="margin-top:6px"><span class="st">⚡ Quick Launch</span></div>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px">
-    <div class="module-card" onclick="showPage('inventory')">
-      <div class="mc-icon">📦</div>
-      <div class="mc-label">Inventory</div>
-      <div class="mc-sub">Products &amp; stock</div>
-    </div>
+  <div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:8px">
     <div class="module-card" onclick="showPage('calendar')">
       <div class="mc-icon">📅</div>
       <div class="mc-label">Calendar</div>
@@ -685,8 +683,7 @@ input[readonly]{background:var(--s2);color:var(--t2);}
       <button class="btn bto bts" onclick="exportCSV('contacts')">⬇ Contacts CSV</button>
       <button class="btn bto bts" onclick="exportCSV('opportunities')">⬇ Opportunities CSV</button>
       <button class="btn bto bts" onclick="exportCSV('activities')">⬇ Activities CSV</button>
-      <button class="btn bto bts" onclick="exportInvCSV()">⬇ Inventory Products CSV</button>
-      <button class="btn bto bts" onclick="exportTxnCSV()">⬇ Inventory Transactions CSV</button>
+      <!-- Inventory CSV export hidden — module not active -->
       <button class="btn bto bts" onclick="exportBackup()">⬇ Full JSON Backup</button>
     </div>
   </div>
@@ -895,18 +892,20 @@ async function doLogin() {
   btn.disabled = true;
 
   try {
-    const [accounts, contacts, opportunities, activities, targets] = await Promise.all([
+    const [accounts, contacts, opportunities, activities, targets, events] = await Promise.all([
       dbCall('getAll','accounts'),
       dbCall('getAll','contacts'),
       dbCall('getAll','opportunities'),
       dbCall('getAll','activities'),
-      dbCall('getAll','targets')
+      dbCall('getAll','targets'),
+      dbCall('getAll','events')
     ]);
     if (accounts      !== null) store.accounts      = accounts      || [];
     if (contacts      !== null) store.contacts      = contacts      || [];
     if (opportunities !== null) store.opportunities = opportunities || [];
     if (activities    !== null) store.activities    = activities    || [];
     if (targets       !== null) store.targets       = targets       || [];
+    if (events        !== null) store.events        = events        || [];
 
     // Update nextId counters so new IDs don't conflict
     const getNum = (arr, prefix) => arr.reduce((max, r) => {
@@ -1099,16 +1098,21 @@ function renderDashboard(){
   const todayStr=today();
   const weekOut=new Date();weekOut.setDate(weekOut.getDate()+7);
   const weekStr=weekOut.toISOString().split("T")[0];
-  const dueItems=store.opportunities.filter(o=>o.nextStepDue&&o.nextStepDue<=weekStr&&!["Closed Won","Closed Lost"].includes(o.stage)).sort((a,b)=>a.nextStepDue.localeCompare(b.nextStepDue));
+  // Combine opportunities due + calendar events this week
+  const oppDue = store.opportunities.filter(o=>o.nextStepDue&&o.nextStepDue<=weekStr&&o.nextStepDue>=todayStr&&!["Closed Won","Closed Lost"].includes(o.stage))
+    .map(o=>({type:"opp",date:o.nextStepDue,title:o.accountName,sub:o.nextStep||o.stage,owner:o.owner}));
+  const calDue = getEvents().filter(e=>e.date&&e.date<=weekStr&&e.date>=todayStr)
+    .map(e=>({type:"event",date:e.date,title:e.title||e.type||"Event",sub:e.account||e.notes||"",owner:e.owner||""}));
+  const dueItems = [...oppDue,...calDue].sort((a,b)=>a.date.localeCompare(b.date));
   document.getElementById("due-count").textContent=dueItems.length?dueItems.length+" items":"";
   if(!dueItems.length){document.getElementById("due-list").innerHTML='<div style="text-align:center;color:var(--t3);padding:16px;font-size:13px">No follow-ups due this week 🎉</div>';}
   else{const av2=n=>{const c=avColor(n);return `background:${c.bg};color:${c.tc}`;};
     document.getElementById("due-list").innerHTML=dueItems.map(o=>{
-      const isToday=o.nextStepDue===todayStr;
-      const isOd2=o.nextStepDue<todayStr;
-      const label=isOd2?"Overdue":isToday?"Today":"Due "+o.nextStepDue;
-      const dotCls=isOd2||isToday?"due-od":"due-today";
-      return`<div class="due-item ${isOd2?"due-od":isToday?"due-today":""}"><div class="av" style="${av2(o.accountName)}">${initials(o.accountName)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.accountName}</div><div style="font-size:12px;color:var(--t2)">${o.nextStep||"Follow up"} · ${o.owner}</div></div><span class="badge ${isOd2?"br":isToday?"ba":"bb"}">${label}</span></div>`;
+      const isToday=o.date===todayStr;
+      const isOd2=o.date<todayStr;
+      const label=isOd2?"Overdue":isToday?"Today":"Due "+o.date;
+      const icon=o.type==="event"?"📅":"📋";
+      return`<div class="due-item ${isOd2?"due-od":isToday?"due-today":""}"><div class="av" style="${av2(o.title)}">${o.type==="event"?"📅":initials(o.title)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.title}</div><div style="font-size:12px;color:var(--t2)">${o.sub||""} ${o.owner?"· "+o.owner:""}</div></div><span class="badge ${isOd2?"br":isToday?"ba":"bb"}">${label}</span></div>`;
     }).join("");}
 
   // ── PIPELINE TREND (last 6 months) ──
@@ -1346,8 +1350,38 @@ function changePassword(){
   document.getElementById("pw-confirm").value="";
   toast("Password updated ✓");
 }
-function addMember(){const v=document.getElementById("new-member").value.trim();if(!v)return;if(store.teamMembers.includes(v)){toast("Already added");return;}store.teamMembers.push(v);document.getElementById("new-member").value="";saveAndSync();renderSettings();toast("Added "+v);}
-function removeMember(i){if(store.teamMembers.length<=1){toast("Need at least one");return;}if(!confirm("Remove "+store.teamMembers[i]+"?"))return;store.teamMembers.splice(i,1);saveAndSync();renderSettings();}
+async function addMember(){
+  const v=document.getElementById("new-member").value.trim();
+  if(!v)return;
+  if(store.teamMembers.includes(v)){toast("Already added");return;}
+  store.teamMembers.push(v);
+  document.getElementById("new-member").value="";
+  await saveAndSync();
+  await syncTeamMembersToSupabase();
+  renderSettings();
+  toast("Added "+v);
+}
+async function removeMember(i){
+  if(store.teamMembers.length<=1){toast("Need at least one");return;}
+  if(!confirm("Remove "+store.teamMembers[i]+"?"))return;
+  store.teamMembers.splice(i,1);
+  await saveAndSync();
+  await syncTeamMembersToSupabase();
+  renderSettings();
+}
+async function syncTeamMembersToSupabase(){
+  try {
+    // Delete all existing team members and re-insert
+    const existing = await dbCall('getAll','users') || [];
+    for(const u of existing){
+      await dbCall('delete','users',{id: u.id});
+    }
+    for(const m of store.teamMembers){
+      await dbCall('insert','users',{data:{id: m.toLowerCase().replace(/\s+/g,'_'), name: m, role: m}});
+    }
+    console.log('✅ Team members synced to Supabase');
+  } catch(e){ console.warn('⚠️ Could not sync team members:', e); }
+}
 
 // ── PASSWORD GATE ──────────────────────────────────────────
 let PW_HASH = localStorage.getItem("baacrm_pw") || "BAA"; // loads saved password
@@ -1724,7 +1758,7 @@ function renderEventCard(e){
 }
 
 function setCalFilter(f){calFilter=f;renderCalendar();}
-async function delEvent(id){if(!confirm("Delete this event?"))return;store.events=store.events.filter(e=>e.id!==id);await saveAndSync();renderCalendar();}
+async function delEvent(id){if(!confirm("Delete this event?"))return;store.events=store.events.filter(e=>e.id!==id);await dbCall('delete','events',{id});await saveAndSync();renderCalendar();}
 
 // ── EVENT MODAL ───────────────────────────────────────────
 // Extend openModal to handle 'event' type
@@ -1739,6 +1773,9 @@ async function saveEvent(id){
   if(!store.events)store.events=[];
   if(id){const i=store.events.findIndex(e=>e.id===id);if(i>=0)store.events[i]=rec;}
   else store.events.push(rec);
+  // Save to Supabase
+  if(id){ await dbCall('update','events',{data:rec,id:rec.id}); }
+  else { await dbCall('insert','events',{data:rec}); }
   closeModal();await saveAndSync();toast((id?"Updated":"Saved")+" ✓");renderCalendar();
 }
 
