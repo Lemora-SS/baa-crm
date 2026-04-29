@@ -1115,8 +1115,8 @@ function renderDashboard(){
   const mVals=months.map(m=>store.opportunities.filter(o=>o.lastUpdated&&o.lastUpdated.startsWith(m)&&o.stage!=="Closed Lost").reduce((a,o)=>a+(+o.estMonthlyRevenue||0),0));
   const mMax=Math.max(...mVals,1);
   const barColors=["#2d5a27","#1e4d8c","#7a5000","#4e3480","#0c5c47","#8b3e10"];
-  document.getElementById("trend-bars").innerHTML=mVals.map((v,i)=>`<div class="trend-bar" style="height:${Math.max(v/mMax*76,4)}px;background:${barColors[i%6]};opacity:${v===0?0.25:0.85}" data-tip="${months[i]}: ${fmtU(v)}" onclick="toast('${months[i]}: ${fmtU(v)}')"></div>`).join("");
-  document.getElementById("trend-lbls").innerHTML=months.map(m=>`<span>${m.substring(5)}</span>`).join("");
+  const tBars=document.getElementById("trend-bars");if(tBars)tBars.innerHTML=mVals.map((v,i)=>`<div class="trend-bar" style="height:${Math.max(v/mMax*76,4)}px;background:${barColors[i%6]};opacity:${v===0?0.25:0.85}" data-tip="${months[i]}: ${fmtU(v)}" onclick="toast('${months[i]}: ${fmtU(v)}')"></div>`).join("");
+  const tLbls=document.getElementById("trend-lbls");if(tLbls)tLbls.innerHTML=months.map(m=>`<span>${m.substring(5)}</span>`).join("");
 }
 let accSF="";
 function renderAccounts(){
