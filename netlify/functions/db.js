@@ -1,103 +1,78 @@
 const { createClient } = require('@supabase/supabase-js');
-
-const SUPABASE_URL     = process.env.SUPABASE_URL;
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin':  '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+ 
+const supabase = createClient(
+  process.env.SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_KEY
+);
+ 
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'Content-Type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS'
 };
-
+ 
 exports.handler = async (event) => {
-  // Handle preflight
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: corsHeaders, body: '' };
+    return { statusCode: 200, headers: CORS, body: '' };
   }
-
+ 
   try {
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { action, table, data, id, filters } = JSON.parse(event.body || '{}');
-
-    let result;
-
-    switch (action) {
-
-      // ── READ ALL ──────────────────────────────────────────
-      case 'getAll': {
-        let query = supabase.from(table).select('*');
-        if (filters) {
-          Object.entries(filters).forEach(([col, val]) => {
-            query = query.eq(col, val);
-          });
+    const { action, table, data, id } = JSON.parse(event.body || '{}');
+ 
+    let result, error;
+ 
+    if (action === 'getAll') {
+      ({ data: result, error } = await supabase.from(table).select('*'));
+ 
+    } else if (action === 'insert') {
+      if (data && data.id) {
+        // Check if record already exists → update or insert
+        const { data: existing } = await supabase
+          .from(table).select('id').eq('id', data.id).maybeSingle();
+ 
+        if (existing) {
+          ({ data: result, error } = await supabase
+            .from(table).update(data).eq('id', data.id).select());
+        } else {
+          ({ data: result, error } = await supabase
+            .from(table).insert(data).select());
         }
-        const { data: rows, error } = await query;
-        if (error) throw error;
-        result = rows;
-        break;
+      } else {
+        // No id → plain insert (audit_log etc)
+        ({ data: result, error } = await supabase
+          .from(table).insert(data).select());
       }
-
-      // ── INSERT ────────────────────────────────────────────
-      case 'insert': {
-        const { data: inserted, error } = await supabase
-          .from(table)
-          .insert(data)
-          .select();
-        if (error) throw error;
-        result = inserted;
-        break;
-      }
-
-      // ── UPDATE ────────────────────────────────────────────
-      case 'update': {
-        const { data: updated, error } = await supabase
-          .from(table)
-          .update(data)
-          .eq('id', id)
-          .select();
-        if (error) throw error;
-        result = updated;
-        break;
-      }
-
-      // ── DELETE ────────────────────────────────────────────
-      case 'delete': {
-        const { error } = await supabase
-          .from(table)
-          .delete()
-          .eq('id', id);
-        if (error) throw error;
-        result = { success: true };
-        break;
-      }
-
-      // ── UPSERT (insert or update) ─────────────────────────
-      case 'upsert': {
-        const { data: upserted, error } = await supabase
-          .from(table)
-          .upsert(data)
-          .select();
-        if (error) throw error;
-        result = upserted;
-        break;
-      }
-
-      default:
-        throw new Error(`Unknown action: ${action}`);
+ 
+    } else if (action === 'update') {
+      ({ data: result, error } = await supabase
+        .from(table).update(data).eq('id', id).select());
+ 
+    } else if (action === 'delete') {
+      ({ data: result, error } = await supabase
+        .from(table).delete().eq('id', id));
+ 
+    } else {
+      return {
+        statusCode: 400,
+        headers: CORS,
+        body: JSON.stringify({ success: false, error: 'Unknown action: ' + action })
+      };
     }
-
+ 
+    if (error) throw error;
+ 
     return {
       statusCode: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: true, data: result }),
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: true, data: result })
     };
-
+ 
   } catch (err) {
-    console.error('DB Function Error:', err);
+    console.error('DB proxy error:', err);
     return {
       statusCode: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ success: false, error: err.message }),
+      headers: { ...CORS, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ success: false, error: err.message })
     };
   }
 };
