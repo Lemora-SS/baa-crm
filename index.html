@@ -911,8 +911,9 @@ async function loadFromSupabase() {
     store.nextId.tar = getNum(store.targets,       'TAR') + 1;
 
     saveStore();
-    renderCurrentPage();
-    console.log('Supabase recargado. Cuentas:', store.accounts.length);
+    if(currentPage==='dashboard') renderDashboard();
+    else renderCurrentPage();
+    console.log('Supabase recargado. Cuentas:', store.accounts.length, 'Eventos:', store.events.length);
   } catch(e) {
     console.warn('Error cargando Supabase:', e);
   }
@@ -968,6 +969,8 @@ async function doLogin() {
   document.getElementById('login-overlay').classList.add('hidden');
   updateUserUI();
   renderDashboard();
+  // Re-render after short delay to ensure DOM is ready
+  setTimeout(renderDashboard, 100);
 }
 
 function doLogout() {
