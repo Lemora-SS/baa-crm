@@ -880,8 +880,43 @@ window.addEventListener('DOMContentLoaded', function() {
     document.getElementById('login-user').focus();
   } else {
     document.getElementById('login-overlay').classList.add('hidden');
+    userProfile = { name: user };
+    loadFromSupabase();
   }
 });
+
+async function loadFromSupabase() {
+  try {
+    const [accounts, contacts, opportunities, activities, targets] = await Promise.all([
+      dbCall('getAll','accounts'),
+      dbCall('getAll','contacts'),
+      dbCall('getAll','opportunities'),
+      dbCall('getAll','activities'),
+      dbCall('getAll','targets')
+    ]);
+    if (accounts      !== null) store.accounts      = accounts      || [];
+    if (contacts      !== null) store.contacts      = contacts      || [];
+    if (opportunities !== null) store.opportunities = opportunities || [];
+    if (activities    !== null) store.activities    = activities    || [];
+    if (targets       !== null) store.targets       = targets       || [];
+
+    const getNum = (arr, prefix) => arr.reduce((max, r) => {
+      const n = parseInt((r.id||'').replace(prefix+'-','')) || 0;
+      return n > max ? n : max;
+    }, 0);
+    store.nextId.acc = getNum(store.accounts,      'ACC') + 1;
+    store.nextId.con = getNum(store.contacts,      'CON') + 1;
+    store.nextId.opp = getNum(store.opportunities, 'OPP') + 1;
+    store.nextId.act = getNum(store.activities,    'ACT') + 1;
+    store.nextId.tar = getNum(store.targets,       'TAR') + 1;
+
+    saveStore();
+    renderCurrentPage();
+    console.log('Supabase recargado. Cuentas:', store.accounts.length);
+  } catch(e) {
+    console.warn('Error cargando Supabase:', e);
+  }
+}
 
 async function doLogin() {
   const user = document.getElementById('login-user').value;
