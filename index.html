@@ -1127,37 +1127,40 @@ function renderDashboard(){
   if(document.getElementById("scorecard")) document.getElementById("scorecard").innerHTML=sc+"</tbody></table></div>";
   const sg={};L.stages.forEach(s=>sg[s]=0);active.forEach(o=>{if(sg[o.stage]!=null)sg[o.stage]+=(+o.estMonthlyRevenue||0);});
   const mx=Math.max(...Object.values(sg),1);
-  if(document.getElementById("pipe-chart")) document.getElementById("pipe-chart").innerHTML=Object.entries(sg).filter(([,v])=>v>0).slice(0,8).map(([s,v],i)=>`<div class="crow"><span class="clbl" title="${s}">${s.substring(0,20)}</span><div class="cbar"><div class="cfill" style="width:${(v/mx*100).toFixed(1)}%;background:${COLORS[i%COLORS.length]}"></div></div><span class="cval">${fmtU(v)}</span></div>`).join("")||'<div class="empty"><p>No pipeline data yet</p></div>';
+  {const _e=document.getElementById("pipe-chart");if(_e){if(_e) _e.innerHTML=Object.entries(sg).filter(([,v])=>v>0).slice(0,8).map(([s,v],i)=>`<div class="crow"><span class="clbl" title="${s}">${s.substring(0,20)}</span><div class="cbar"><div class="cfill" style="width:${(v/mx*100).toFixed(1)}%;background:${COLORS[i%COLORS.length]}"></div></div><span class="cval">${fmtU(v)}</span></div>`).join("")||'<div class="empty"><p>No pipeline data yet</p></div>';}}
   const ra=[...store.activities].sort((a,b)=>new Date(b.date)-new Date(a.date)).slice(0,5);
   document.getElementById("recent-acts").innerHTML=ra.map(a=>`<div class="arow"><div class="adot"></div><div class="acon"><h4>${a.accountName||"(No Account)"} — ${a.activityType}</h4><p>${a.owner} · ${a.date} · ${a.outcome||""}</p></div></div>`).join("")||'<div class="empty"><p>No activities yet</p></div>';
   const repD=store.teamMembers.map((r,i)=>({r,v:store.opportunities.filter(o=>o.owner===r&&o.stage!=="Closed Lost").reduce((a,o)=>a+(+o.estMonthlyRevenue||0),0),i}));
   const mr=Math.max(...repD.map(x=>x.v),1);
-  if(document.getElementById("rep-chart")) document.getElementById("rep-chart").innerHTML=repD.map(({r,v,i})=>`<div class="crow"><span class="clbl">${r.replace("(Name)","").trim()}</span><div class="cbar"><div class="cfill" style="width:${(v/mr*100).toFixed(1)}%;background:${COLORS[i%COLORS.length]}"></div></div><span class="cval">${fmtU(v)}</span></div>`).join("");
+  {const _e=document.getElementById("rep-chart");if(_e){if(_e) _e.innerHTML=repD.map(({r,v,i})=>`<div class="crow"><span class="clbl">${r.replace("(Name)","").trim()}</span><div class="cbar"><div class="cfill" style="width:${(v/mr*100).toFixed(1)}%;background:${COLORS[i%COLORS.length]}"></div></div><span class="cval">${fmtU(v)}</span></div>`).join("");}}
 
   // ── DUE TODAY & THIS WEEK ──
   const todayStr=today();
   const weekOut=new Date();weekOut.setDate(weekOut.getDate()+7);
   const weekStr=weekOut.toISOString().split("T")[0];
   const dueItems=store.opportunities.filter(o=>o.nextStepDue&&o.nextStepDue<=weekStr&&!["Closed Won","Closed Lost"].includes(o.stage)).sort((a,b)=>a.nextStepDue.localeCompare(b.nextStepDue));
-  document.getElementById("due-count").textContent=dueItems.length?dueItems.length+" items":"";
-  if(!dueItems.length){document.getElementById("due-list").innerHTML='<div style="text-align:center;color:var(--t3);padding:16px;font-size:13px">No follow-ups due this week 🎉</div>';}
+  const dueCountEl=document.getElementById("due-count");if(dueCountEl)dueCountEl.textContent=dueItems.length?dueItems.length+" items":"";
+  const dueListEl=document.getElementById("due-list");if(dueListEl){if(!dueItems.length){dueListEl.innerHTML='<div style="text-align:center;color:var(--t3);padding:16px;font-size:13px">No follow-ups due this week 🎉</div>';}
   else{const av2=n=>{const c=avColor(n);return `background:${c.bg};color:${c.tc}`;};
-    document.getElementById("due-list").innerHTML=dueItems.map(o=>{
+    dueListEl.innerHTML=dueItems.map(o=>{
       const isToday=o.nextStepDue===todayStr;
       const isOd2=o.nextStepDue<todayStr;
       const label=isOd2?"Overdue":isToday?"Today":"Due "+o.nextStepDue;
       const dotCls=isOd2||isToday?"due-od":"due-today";
       return`<div class="due-item ${isOd2?"due-od":isToday?"due-today":""}"><div class="av" style="${av2(o.accountName)}">${initials(o.accountName)}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${o.accountName}</div><div style="font-size:12px;color:var(--t2)">${o.nextStep||"Follow up"} · ${o.owner}</div></div><span class="badge ${isOd2?"br":isToday?"ba":"bb"}">${label}</span></div>`;
-    }).join("");}
+    }).join("");}}
 
   // ── CALENDAR EVENTS (Today & This Week) ──
   const todayEvts = (store.events||[]).filter(e=>{
     if(!e.date) return false;
-    const d = new Date(e.date + 'T00:00:00');
+    // Handle both "2026-04-30" and "2026-04-30T..." formats
+    const dateStr = (e.date||'').substring(0,10);
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) return false;
     const today2 = new Date(); today2.setHours(0,0,0,0);
     const week = new Date(today2); week.setDate(week.getDate()+7);
+    const d = new Date(dateStr + 'T12:00:00'); // noon to avoid timezone issues
     return d >= today2 && d <= week;
-  }).sort((a,b)=>a.date.localeCompare(b.date));
+  }).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
   const calEl = document.getElementById("dash-cal-events");
   if(calEl){
     if(!todayEvts.length){
