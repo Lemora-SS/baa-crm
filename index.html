@@ -950,6 +950,7 @@ async function loadFromSupabase() {
     store.nextId.tar = getNum(store.targets,       'TAR') + 1;
 
     saveStore();
+    setSyncOn();
     if(currentPage==='dashboard') renderDashboard();
     else renderCurrentPage();
     console.log('Supabase recargado. Cuentas:', store.accounts.length, 'Eventos:', store.events.length);
@@ -997,6 +998,7 @@ async function doLogin() {
     store.nextId.tar = getNum(store.targets,       'TAR') + 1;
 
     saveStore();
+    setSyncOn();
     console.log('✅ Datos cargados desde Supabase. nextId:', store.nextId);
   } catch(e) {
     console.warn('⚠️ Usando datos locales:', e);
