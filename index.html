@@ -504,6 +504,8 @@ input[readonly]{background:var(--s2);color:var(--t2);}
       <option>Julian</option><option>Ori</option><option>Myriam</option>
       <option>Edgar</option><option>Rep 1</option><option>Rep 2</option><option>Rep 3</option>
     </select>
+    <label style="text-align:left;margin-top:12px;display:block;font-size:12px;font-weight:600;color:var(--t2);text-transform:uppercase;letter-spacing:.06em">PIN</label>
+    <input type="password" id="login-pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="••••" style="padding:11px 13px;border:1px solid var(--bd2);border-radius:var(--rs);font-size:28px;letter-spacing:0.4em;text-align:center;font-family:inherit;background:var(--sf);color:var(--tx);width:100%">
     <button onclick="doLogin()">Entrar</button>
     <div class="login-error" id="login-error"></div>
   </div>
@@ -961,22 +963,38 @@ async function loadFromSupabase() {
 
 async function doLogin() {
   const user = document.getElementById('login-user').value;
+  const pin  = document.getElementById('login-pin').value;
   const error = document.getElementById('login-error');
   if (!user) { error.textContent = 'Selecciona tu nombre'; return; }
+  if (!pin)  { error.textContent = 'Ingresa tu PIN'; return; }
 
   const btn = document.querySelector('#login-box button');
-  btn.textContent = 'Cargando...';
+  btn.textContent = 'Verificando...';
   btn.disabled = true;
 
   try {
-    const [accounts, contacts, opportunities, activities, targets, events, users] = await Promise.all([
+    // 1. Validate PIN first
+    const users = await dbCall('getAll', 'users');
+    if (!users) {
+      error.textContent = 'Error de conexión. Intenta de nuevo.';
+      btn.textContent = 'Entrar'; btn.disabled = false; return;
+    }
+    const userRecord = users.find(u => (u.username || u.role) === user);
+    if (!userRecord || String(userRecord.pin) !== String(pin)) {
+      error.textContent = 'PIN incorrecto';
+      btn.textContent = 'Entrar'; btn.disabled = false; return;
+    }
+
+    btn.textContent = 'Cargando...';
+
+    // 2. PIN valid — load all tables
+    const [accounts, contacts, opportunities, activities, targets, events] = await Promise.all([
       dbCall('getAll','accounts'),
       dbCall('getAll','contacts'),
       dbCall('getAll','opportunities'),
       dbCall('getAll','activities'),
       dbCall('getAll','targets'),
       dbCall('getAll','events'),
-      dbCall('getAll','users')
     ]);
     if (accounts      !== null) store.accounts      = accounts      || [];
     if (contacts      !== null) store.contacts      = contacts      || [];
